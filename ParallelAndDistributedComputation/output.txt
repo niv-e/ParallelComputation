@@ -1,0 +1,6 @@
+1: No three different Objects were found
+2: found Objects : 1 Position(20,20) ; 3 Position(70,70) ; 7 Position(100,100) ;
+3: No three different Objects were found
+4: No three different Objects were found
+5: No three different Objects were found
++
