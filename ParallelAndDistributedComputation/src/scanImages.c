@@ -1,7 +1,9 @@
 #include <math.h>
 #include "../include/scanImages.h"
 #include "stdlib.h"
-
+#include <omp.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 static Point* IsObjectInPicture(Picture * picture, Object * object, float matchingValue);
 
@@ -14,11 +16,14 @@ double matching(Picture * picture, Object * object, Point* matchingPoint) {
 
 	int diff = 0;
 	int pictureX = 0, pictureY = 0;
-	//Should Parallel using OpenMP
-	for (int i = 0; i < object->size ; i++) {
+	int size = object->size;
+	int i, j;
+
+	#pragma omp for
+	for (i = 0; i < size; i++) {
 		pictureX = (matchingPoint->x) + i;
 		
-		for (int j = 0; j < object->size; j++) {
+		for (j = 0; j < object->size; j++) {
 			pictureY = (matchingPoint->y) + j;
 			diff += calculateDiff(picture->elements[pictureX][pictureY], object->elements[i][j]);
 		}

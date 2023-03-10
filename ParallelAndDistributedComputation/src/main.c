@@ -2,6 +2,7 @@
 #include "../include/scanImages.h"
 #include <stdio.h>
 #include <string.h>
+#include <Windows.h>
 
 
 int main(int argc, char *argv[]) {
@@ -15,7 +16,16 @@ int main(int argc, char *argv[]) {
 
 	printInputFile(data);
 	
+	LARGE_INTEGER start, end, frequency;
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&start);
+
 	PictureObjectMatch** matches = findAllObjectsMatches(data);
+
+	QueryPerformanceCounter(&end);
+
+	double duration = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
+	printf("Execution time: %f seconds\n", duration);
 
 	writeOutputFile(matches, data->numOfPictures, "output.txt");
 
