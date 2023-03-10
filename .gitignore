@@ -1,4 +1,4 @@
-# Prerequisites
+﻿# Prerequisites
 *.d
 
 # Object files
@@ -50,3 +50,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Folders
+/.vs/ParallelAndDistributedComputation/v15
+/ParallelAndDistributedComputation/x64/Debug
+/x64/Debug
+
