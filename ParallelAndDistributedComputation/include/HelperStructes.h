@@ -18,6 +18,14 @@ typedef struct {
 } Object;
 
 typedef struct {
+	double matchingValue;
+	Picture* pictures;
+	int numOfPictures;
+	Object* objects;
+	int numOfObjects;
+} InputData;
+
+typedef struct {
 	Object* object;
 	Point* matchPoint;
 }ObjectMatch;

@@ -5,13 +5,7 @@
 
 
 
-typedef struct {
-  double matchingValue;
-  Picture* pictures;
-  int numOfPictures;
-  Object* objects;
-  int numOfObjects;
-} InputData;
+
 
 InputData* readInputFile(const char *filename);
 void printInputFile(const InputData* data);
