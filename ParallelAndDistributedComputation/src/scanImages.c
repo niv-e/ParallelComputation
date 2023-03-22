@@ -17,32 +17,34 @@ double matching(Picture * picture, Object * object, Point* matchingPoint) {
 	int diff = 0;
 	int pictureX = 0, pictureY = 0;
 	int size = object->size;
-	int i, j;
+	int i, j = 0;
 
 	#pragma omp for
 	for (i = 0; i < size; i++) {
+		j++;
 		pictureX = (matchingPoint->x) + i;
 		
 		for (j = 0; j < object->size; j++) {
 			pictureY = (matchingPoint->y) + j;
-			diff += calculateDiff(picture->elements[pictureX][pictureY], object->elements[i][j]);
+			diff += calculateDiff(*(picture->elements + (pictureX * picture->size) + pictureY), *(object->elements + (i * object->size) + j));
 		}
 	}
-	return (double)diff / (double)(object->size * object->size);
+ 	return (double)diff / (double)(object->size * object->size);
 }
 
-static ObjectMatch* createPictureObjectMatch(Object * object, Point* matchingPoint);
+static ObjectMatch* createPictureObjectMatch(ObjectMatch* ptr, Object * object, Point* matchingPoint);
 
-ObjectMatch* createPictureObjectMatch(Object * object, Point* matchingPoint) {
-	ObjectMatch* currentMatch = (ObjectMatch*)malloc(sizeof(ObjectMatch));
-	currentMatch->matchPoint = matchingPoint;
-	currentMatch->object = object;
+ObjectMatch* createPictureObjectMatch(ObjectMatch* ptr, Object * object, Point* matchingPoint) {
+	//ObjectMatch currentMatch;
+	ptr->matchPoint = matchingPoint;
+	ptr->object = object;
 
-	return currentMatch;
+	return ptr;
 }
 
 Point* IsObjectInPicture(Picture * picture, Object * object, double matchingValue)
 {
+
 	Point* matchingPoint = (Point*)malloc(sizeof(Point));
 
 	for (int x = 0; x <= picture->size - object->size; x++) {
@@ -68,57 +70,58 @@ Point* IsObjectInPicture(Picture * picture, Object * object, double matchingValu
 }
 
 //Should Parallel using MPI
-PictureObjectMatch ** findAllObjectsMatches(InputData * data)
+PictureObjectMatch* findAllObjectsMatches(InputData * data)
 {
-	PictureObjectMatch** pictureObjectMatches = (PictureObjectMatch**)malloc(sizeof(PictureObjectMatch*) * data->numOfPictures);
-
+	PictureObjectMatch* pictureObjectMatches = (PictureObjectMatch*)malloc(sizeof(PictureObjectMatch) * data->numOfPictures);
+	
 	for (int picture = 0; picture < data->numOfPictures; picture++) {
 
-		PictureObjectMatch* pictureObjectMatch = (PictureObjectMatch*)malloc(sizeof(PictureObjectMatch));
+		PictureObjectMatch pictureObjectMatch;
 
-		pictureObjectMatch->picture = &data->pictures[picture];
+ 		pictureObjectMatch.picture = &data->pictures[picture];
 
-		pictureObjectMatch->objectMatchs = NULL;
+		pictureObjectMatch.objectMatchs = NULL;
 
-		pictureObjectMatch->numOfMatches = 0;
+		pictureObjectMatch.numOfMatches = 0;
 
 		pictureObjectMatches[picture] = pictureObjectMatch;
 
 		for (int object = 0; object < data->numOfObjects; object++) {
 			Point* matchingPoint = IsObjectInPicture(&data->pictures[picture], &data->objects[object], data->matchingValue);
+		
 			if (!matchingPoint == NULL) {
-				if (pictureObjectMatches[picture]->numOfMatches == 0) {
+				if (pictureObjectMatches[picture].numOfMatches == 0) {
 					
-					pictureObjectMatch->numOfMatches++;
+					pictureObjectMatches[picture].numOfMatches++;
 
-					ObjectMatch* currentMatch = createPictureObjectMatch(&(data->objects[object]), matchingPoint);
+					pictureObjectMatches[picture].objectMatchs = (ObjectMatch*)malloc(sizeof(ObjectMatch));
 
-					pictureObjectMatches[picture]->objectMatchs = (ObjectMatch**)malloc(sizeof(ObjectMatch*));
+					ObjectMatch* currentMatch = createPictureObjectMatch(pictureObjectMatches[picture].objectMatchs ,&(data->objects[object]), matchingPoint);
 
-					pictureObjectMatches[picture]->objectMatchs[pictureObjectMatch->numOfMatches - 1] = currentMatch;
-
-					continue;
+ 					continue;
 				}
 
-				pictureObjectMatch->numOfMatches++;
+				pictureObjectMatches[picture].numOfMatches++;
 				
-				PictureObjectMatch* currentMatch = createPictureObjectMatch(&(data->objects[object]), matchingPoint);
+				pictureObjectMatches[picture].objectMatchs =
+					(ObjectMatch*)
+					realloc(pictureObjectMatches[picture].objectMatchs, sizeof(ObjectMatch) * pictureObjectMatches[picture].numOfMatches);
 
-				pictureObjectMatches[picture]->objectMatchs = 
-					(ObjectMatch**)realloc(pictureObjectMatches[picture]->objectMatchs, sizeof(ObjectMatch*) * pictureObjectMatch->numOfMatches);
-								
-				pictureObjectMatches[picture]->objectMatchs[pictureObjectMatch->numOfMatches - 1] = currentMatch;
-
-				if (pictureObjectMatch->numOfMatches == 3) {
+					createPictureObjectMatch(
+					(pictureObjectMatches[picture].objectMatchs + pictureObjectMatches[picture].numOfMatches -1 ),
+					&(data->objects[object]),
+					matchingPoint);
+	
+				if (pictureObjectMatches[picture].numOfMatches == 3) {
 					break;
 				}
 			}
-
 		}
 
 	}
-
 	return pictureObjectMatches;
+
+	return NULL;
 }
 
 void freePictureObjectMatches(PictureObjectMatch ** pictureObjectMatches)
@@ -126,10 +129,10 @@ void freePictureObjectMatches(PictureObjectMatch ** pictureObjectMatches)
 	int size = sizeof(pictureObjectMatches) / sizeof(PictureObjectMatch*);
 
 	for(int i = 0; i< size; i++){
-		for (int j = 0; j < pictureObjectMatches[i]->numOfMatches; j++) {
-			free(pictureObjectMatches[i]->objectMatchs[j]->matchPoint);
-			free(pictureObjectMatches[i]->objectMatchs[j]);
-		}
+		//for (int j = 0; j < pictureObjectMatches[i]->numOfMatches; j++) {
+		//	free(pictureObjectMatches[i].objectMatchs[j]->matchPoint);
+		//	free(pictureObjectMatches[i].objectMatchs[j]);
+		//}
 		free(pictureObjectMatches[i]);
 	}
 

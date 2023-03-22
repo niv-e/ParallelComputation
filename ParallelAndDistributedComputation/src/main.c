@@ -27,50 +27,35 @@ int main(int argc, char *argv[]) {
 	// Get the process id 
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	
-	printf("after init\n");
-
 	if (size != 2) {
 		printf("Run the example with two processes only\n");
 		MPI_Abort(MPI_COMM_WORLD, __LINE__);
 	}
 	
-	MPI_Datatype MPI_DATA;
-	MPI_Datatype types[3] = { MPI_CHAR, MPI_INT, MPI_UB };
-	int block_lengths[3] = { 10, 1, 1 };
-
-	MPI_Aint displacements[3] = {
-		offsetof(Picture, id),
-		offsetof(Picture, size),
-		sizeof(Picture)
-	};
-
-	MPI_Type_create_struct(3, block_lengths, displacements, types, &MPI_DATA);
-
-	MPI_Type_commit(&MPI_DATA);
-
 	if (my_rank == 0) { 
 
 		int dest = 1;
 
-		printf("Hello world from process %d of %d  \n", my_rank, size);
-		
-		printf("argv[1] = %s  \n", argv[1]);
-
 		InputData* data = readInputFile(argv[1]);
 
-		printf("done to read inupt file", argv[1]);
+		MPI_Send(&data->matchingValue, 1, MPI_DOUBLE, dest, t_NUM_OF_PICS, MPI_COMM_WORLD);
 
 		int numOfWorkerPictures = data->numOfPictures / 2;
-
-		printf("Number of pictures for worker: %d\n", numOfWorkerPictures);
 
 		MPI_Send(&numOfWorkerPictures, 1, MPI_INT,dest, t_NUM_OF_PICS, MPI_COMM_WORLD);
 
 		for (int i = 0; i < numOfWorkerPictures; i++) {
-			printf("Main process sent picture with id: %s \n", data->pictures[i].id);
 
-			MPI_Send(&data->pictures[i], 1, MPI_DATA, dest, t_PIC, MPI_COMM_WORLD);
+			MPI_Send(&data->pictures[i].id, 10, MPI_CHAR, dest, t_PIC, MPI_COMM_WORLD);
+
+			MPI_Send(&data->pictures[i].size, 1, MPI_INT, dest, t_PIC, MPI_COMM_WORLD);
+
+			MPI_Send(data->pictures[i].elements, data->pictures[i].size * data->pictures[i].size, MPI_INT, dest, t_PIC, MPI_COMM_WORLD);
 		}
+
+		data->pictures = data->pictures += numOfWorkerPictures;
+
+		data->numOfPictures = data->numOfPictures -= numOfWorkerPictures;
 
 		printf("Sending number of objects for worker: %d\n", data->numOfObjects);
 
@@ -79,47 +64,92 @@ int main(int argc, char *argv[]) {
 		for (int i = 0; i < data->numOfObjects; i++) {
 			printf("Main process sent object with id: %s \n", data->objects[i].id);
 
-			MPI_Send(&data->objects[i], 1, MPI_DATA, dest, t_OBJ, MPI_COMM_WORLD);
-		}
+			MPI_Send(&data->objects[i].id, 10, MPI_CHAR, dest, t_PIC, MPI_COMM_WORLD);
 
-		//TODO: change this function to return PictureObjectMatch* instead of PictureObjectMatch**
-		PictureObjectMatch** matches = findAllObjectsMatches(data);
+			MPI_Send(&data->objects[i].size, 1, MPI_INT, dest, t_PIC, MPI_COMM_WORLD);
+
+			MPI_Send(data->objects[i].elements, data->objects[i].size * data->objects[i].size, MPI_INT, dest, t_PIC, MPI_COMM_WORLD);
+
+		}
+		
+		PictureObjectMatch* matches = findAllObjectsMatches(data);
+
+		char* output = BuildOutput(matches, data->numOfPictures, "");
+
+		char* message = NULL;
+
+		int message_size = 0;
+
+		MPI_Probe(dest, t_TERMINATE, MPI_COMM_WORLD, &status);
+
+		MPI_Get_count(&status, MPI_CHAR, &message_size);
+
+		message = (char*)malloc(message_size * sizeof(char));
+		
+		MPI_Recv(message, message_size, MPI_CHAR, dest, t_TERMINATE, MPI_COMM_WORLD, &status);
+
+		WriteToFile("output.txt", output);
+		WriteToFile("output.txt", message);
+		
+		free(message);
+
 	}
 	else
 	{
 		int source = 0;
 
 		int numOfWorkerPictures;
+		
+		double matchingVal;
+
+		MPI_Recv(&matchingVal, 1, MPI_DOUBLE, source, t_NUM_OF_PICS, MPI_COMM_WORLD, &status);
 
 		MPI_Recv(&numOfWorkerPictures, 1, MPI_INT, source, t_NUM_OF_PICS, MPI_COMM_WORLD, &status);
-		
-		printf("Worker recieved number of pictures : %d\n", numOfWorkerPictures);
 
-		Picture* picutes = (Picture*)malloc(sizeof(Picture)*numOfWorkerPictures);
-		
+		Picture* pictures = (Picture*)malloc(sizeof(Picture)*numOfWorkerPictures);
+
 		for (int i = 0; i < numOfWorkerPictures; i++) {
-
-			MPI_Recv(&picutes[i], 1, MPI_DATA, source, t_PIC, MPI_COMM_WORLD, &status);
 			
-			printf("Worker recieved picture with id: %s \n", picutes[i].id);
+			MPI_Recv(&pictures[i].id, 10, MPI_CHAR, source, t_PIC, MPI_COMM_WORLD, &status);
+
+			MPI_Recv(&pictures[i].size, 1, MPI_INT, source, t_PIC, MPI_COMM_WORLD, &status);
+
+			pictures[i].elements = (int*)malloc(sizeof(int) * pictures[i].size * pictures[i].size);
+
+			MPI_Recv(pictures[i].elements, pictures[i].size * pictures[i].size, MPI_INT, source, t_PIC, MPI_COMM_WORLD, &status);
 
 		}
 		int numberOfObjects;
 
 		MPI_Recv(&numberOfObjects, 1, MPI_INT, source, t_NUM_OF_OBJS, MPI_COMM_WORLD, &status);
 
-		printf("Worker recieved number of pictures : %d\n", numberOfObjects);
-
 		Object* objects = (Object*)malloc(sizeof(Object)*numberOfObjects);
 
 		for (int i = 0; i < numberOfObjects; i++) {
 
-			MPI_Recv(&objects[i], 1, MPI_DATA, source, t_OBJ, MPI_COMM_WORLD, &status);
+			MPI_Recv(&objects[i].id, 10, MPI_CHAR, source, t_PIC, MPI_COMM_WORLD, &status);
 
-			printf("Worker recieved picture with id: %s \n", objects[i].id);
+			MPI_Recv(&objects[i].size, 1, MPI_INT, source, t_PIC, MPI_COMM_WORLD, &status);
+
+			objects[i].elements = (int*)malloc(sizeof(int) * objects[i].size * objects[i].size);
+
+			MPI_Recv(objects[i].elements, objects[i].size * objects[i].size, MPI_INT, source, t_PIC, MPI_COMM_WORLD, &status);
 		}
-	}
 
+		InputData* data = (InputData*)malloc(sizeof(InputData));
+
+		data->matchingValue = matchingVal;
+		data->numOfPictures = numOfWorkerPictures;
+		data->pictures = pictures;
+		data->numOfObjects = numberOfObjects;
+		data->objects = objects;
+
+		PictureObjectMatch* matches = findAllObjectsMatches(data);
+
+		char* output = BuildOutput(matches, data->numOfPictures, "");
+
+		MPI_Send(output, strlen(output) + 1, MPI_CHAR, source, t_TERMINATE, MPI_COMM_WORLD);
+	}
 	MPI_Finalize();
 }
 

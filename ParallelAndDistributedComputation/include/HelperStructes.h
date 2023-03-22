@@ -8,13 +8,13 @@ typedef struct {
 typedef struct {
 	char id[10];
 	int size;
-	int** elements;
+	int* elements;
 } Picture;
 
 typedef struct {
 	char id[10];
 	int size;
-	int** elements;
+	int* elements;
 } Object;
 
 typedef struct {
@@ -31,7 +31,7 @@ typedef struct {
 }ObjectMatch;
 
 typedef struct {
-	Picture* picture;
-	ObjectMatch** objectMatchs;
 	int numOfMatches;
+	Picture* picture;
+	ObjectMatch* objectMatchs;
 }PictureObjectMatch;

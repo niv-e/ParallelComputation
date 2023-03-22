@@ -9,7 +9,7 @@ Picture readPicture(FILE *file) {
 	  Picture picture;
 	  fscanf(file, "%s", &picture.id);
 	  fscanf(file, "%d", & picture.size);
-	  picture.elements = (int**)malloc(sizeof(int*) * picture.size);
+	  picture.elements = (int*)malloc(sizeof(int) * picture.size * picture.size);
 
 	  if (picture.elements == NULL) {
 		  fprintf(stderr, "Error: Memory allocation failed\n");
@@ -17,16 +17,8 @@ Picture readPicture(FILE *file) {
 	  }
 
 	  for (int i = 0; i < picture.size; i++) {
-
-		picture.elements[i] = (int*)malloc(sizeof(int) * picture.size);
-
-		if (picture.elements[i] == NULL) {
-			fprintf(stderr, "Error: Memory allocation failed\n");
-			exit(1);
-		}
-
 		for (int j = 0; j < picture.size; j++) {
-		  fscanf(file, "%d", & picture.elements[i][j]);
+		  fscanf(file, "%d", picture.elements + (i * picture.size) + j);
 		}
 	  }
 
@@ -38,28 +30,13 @@ Object readObject(FILE *file) {
 	  fscanf(file, "%s", &object.id);
 	  fscanf(file, "%d", &object.size);
 
-	  object.elements = (int**)malloc(sizeof(int*) * object.size);
-
-	  if (object.elements == NULL) {
-		  fprintf(stderr, "Error: Memory allocation failed\n");
-		  exit(1);
-	  }
+	  object.elements = (int*)malloc(sizeof(int) * object.size * object.size);
 
 	  for (int i = 0; i < object.size; i++) {
-
-		  object.elements[i] = (int*)malloc(sizeof(int) * object.size);
-
-		  if (object.elements[i] == NULL) {
-			  fprintf(stderr, "Error: Memory allocation failed\n");
-			  exit(1);
-		  }
-
-
 		for (int j = 0; j < object.size; j++) {
-		  fscanf(file, "%d", &object.elements[i][j]);
+		  fscanf(file, "%d", object.elements + (i * object.size) + j);
 		}
 	  }
-
 
 	  return object;
 }
@@ -109,7 +86,7 @@ void printInputFile(const InputData * data)
 		printf("Elements:\n");
 		for (int j = 0; j < picture.size; j++) {
 			for (int k = 0; k < picture.size; k++) {
-				printf("%d ", picture.elements[j][k]);
+				printf("%d ", picture.elements + (j * picture.size) + k);
 			}
 			printf("\n");
 		}
@@ -123,7 +100,7 @@ void printInputFile(const InputData * data)
 		printf("Elements:\n");
 		for (int j = 0; j < object.size; j++) {
 			for (int k = 0; k < object.size; k++) {
-				printf("%d ", object.elements[j][k]);
+				printf("%d ", object.elements + (j * object.size) + k);
 			}
 			printf("\n");
 		}
@@ -148,38 +125,57 @@ void freeInputDate(InputData* inputData){
 	free(inputData);
 }
 
-void writeOutputFile(PictureObjectMatch** matches,int size , char * filePath)
+char* BuildOutput(PictureObjectMatch* matches,int size , char * filePath)
 {		
-	FILE *fp = fopen(filePath, "w");
-	
-	if (fp == NULL) {
-		printf("Error opening file!\n");
-		return 1;
-	}
+	//FILE *fp = fopen(filePath, "w");
+	//
+	//if (fp == NULL) {
+	//	printf("Error opening file!\n");
+	//	return 1;
+	//}
 
-	char buffer[1024] = "";
+	char* buffer = malloc(sizeof(char) * 1024);
+	char tempString[1024] = "";
+	buffer[0] = '\0'; // initialize buffer to empty string
 
 
 	for (int i = 0; i < size; i++) {
-		if (matches[i]->numOfMatches < 3) {
-			fprintf(fp, "%s: No three different Objects were found\n", matches[i]->picture->id);
+		if (matches[i].numOfMatches < 3) {
+			
+			sprintf(tempString, "%s: No three different Objects were found\n", matches[i].picture->id);
+			strcat(buffer, tempString);
 		}
 		else{
-			fprintf(fp, "%s: found Objects :",matches[i]->picture->id);
+			sprintf(tempString, "%s: found Objects :",matches[i].picture->id);
+			strcat(buffer, tempString);
 
-			for (int j = 0; j < matches[i]->numOfMatches; j++) {
-				fprintf(fp, " %s Position(%d,%d) ;",
-					matches[i]->objectMatchs[j]->object->id,
-					matches[i]->objectMatchs[j]->matchPoint->x,
-					matches[i]->objectMatchs[j]->matchPoint->y);
+			for (int j = 0; j < matches[i].numOfMatches; j++) {
+				sprintf(tempString, " %s Position(%d,%d) ;",
+					matches[i].objectMatchs[j].object->id,
+					matches[i].objectMatchs[j].matchPoint->x,
+					matches[i].objectMatchs[j].matchPoint->y);
+				strcat(buffer, tempString);
+
 			}
 
-			fprintf(fp, "\n");
+			strcat(buffer, "\0\n");
 
 		}
 	}
 
-	fclose(fp);
+	//fclose(fp);
+	return buffer;
+}
+
+void WriteToFile(char * filePath,char* content)
+{	
+	FILE* file = fopen(filePath, "a"); // open the file for appending
+	if (file == NULL) { // check if file could not be opened
+		file = fopen(filePath, "w"); // create a new file
+	}
+	fprintf(file, "%s", content); // write content to file
+	fclose(file); // close the file
+
 }
 
 	
